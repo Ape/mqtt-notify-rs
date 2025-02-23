@@ -13,29 +13,32 @@ use crate::notifier::Notifier;
 pub struct XMPPNotifier {
     jid: BareJid,
     password: String,
-    recipient: BareJid,
+    recipients: Vec<BareJid>,
     sender: UnboundedSender<String>,
     receiver: Mutex<UnboundedReceiver<String>>,
 }
 
 impl XMPPNotifier {
-    pub async fn new(jid: &str, password: &str, recipient: &str) -> Self {
+    pub async fn new(jid: &str, password: &str, recipients: &[String]) -> Self {
         let jid = BareJid::from_str(jid).expect("Invalid JID");
-        let recipient_jid = BareJid::from_str(recipient).expect("Invalid recipient JID");
+        let recipient_jids = recipients
+            .iter()
+            .map(|r| BareJid::from_str(r).expect("Invalid recipient JID"))
+            .collect();
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
         Self {
             jid,
             password: password.to_string(),
-            recipient: recipient_jid,
+            recipients: recipient_jids,
             sender,
             receiver: Mutex::new(receiver),
         }
     }
 
     pub async fn from_credentials_file(
-        recipient: &str,
+        recipients: &[String],
         filepath: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let path = shellexpand::tilde(filepath).to_string();
@@ -50,7 +53,7 @@ impl XMPPNotifier {
             .next()
             .ok_or_else(|| format!("Missing password in {}", path))?;
 
-        Ok(Self::new(jid, password, recipient).await)
+        Ok(Self::new(jid, password, recipients).await)
     }
 }
 
@@ -74,12 +77,14 @@ impl Notifier for XMPPNotifier {
         loop {
             tokio::select! {
                 Some(msg) = receiver.recv() => {
-                    agent.send_message(
-                        self.recipient.clone().into(),
-                        MessageType::Chat,
-                        "",
-                        &msg,
-                    ).await;
+                    for recipient in &self.recipients {
+                        agent.send_message(
+                            recipient.clone().into(),
+                            MessageType::Chat,
+                            "",
+                            &msg,
+                        ).await;
+                    }
                 },
                 Some(events) = agent.wait_for_events() => {
                     for event in events {

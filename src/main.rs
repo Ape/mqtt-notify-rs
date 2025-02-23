@@ -22,9 +22,9 @@ struct Args {
     #[arg(long)]
     desktop: bool,
 
-    /// Enable XMPP notifications
+    /// Enable XMPP notifications (can be specified multiple times)
     #[arg(long, value_name = "RECIPIENT")]
-    xmpp: Option<String>,
+    xmpp: Vec<String>,
 
     /// Path to the XMPP credentials file
     #[arg(long, value_name = "FILE", default_value = "~/.sendxmpprc")]
@@ -65,8 +65,8 @@ async fn main() {
         plugins.push(Box::new(DesktopNotifier::new()));
     }
 
-    if let Some(recipient) = args.xmpp {
-        match XMPPNotifier::from_credentials_file(&recipient, &args.xmpp_credentials).await {
+    if !args.xmpp.is_empty() {
+        match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials).await {
             Ok(plugin) => plugins.push(Box::new(plugin)),
             Err(e) => {
                 log::error!(

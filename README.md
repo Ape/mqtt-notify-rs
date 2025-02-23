@@ -18,7 +18,7 @@ Arguments:
 
 Options:
       --desktop                  Enable desktop notifications
-      --xmpp <RECIPIENT>         Enable XMPP notifications
+      --xmpp <RECIPIENT>         Enable XMPP notifications (can be specified multiple times)
       --xmpp-credentials <FILE>  Path to the XMPP credentials file [default: ~/.sendxmpprc]
   -h, --help                     Print help
   -V, --version                  Print version
