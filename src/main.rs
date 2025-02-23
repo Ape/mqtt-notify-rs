@@ -59,15 +59,15 @@ async fn main() {
         }
     };
 
-    let mut plugins: Vec<Box<DynNotifier>> = Vec::new();
+    let mut notifiers: Vec<Box<DynNotifier>> = Vec::new();
 
     if args.desktop {
-        plugins.push(Box::new(DesktopNotifier::new()));
+        notifiers.push(Box::new(DesktopNotifier::new()));
     }
 
     if !args.xmpp.is_empty() {
         match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials).await {
-            Ok(plugin) => plugins.push(Box::new(plugin)),
+            Ok(notifier) => notifiers.push(Box::new(notifier)),
             Err(e) => {
                 log::error!(
                     "Error loading XMPP credentials from '{}': {}",
@@ -79,11 +79,11 @@ async fn main() {
         }
     }
 
-    if plugins.is_empty() {
-        log::warn!("No notification plugins enabled");
+    if notifiers.is_empty() {
+        log::warn!("No notifiers enabled");
     }
 
-    let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(plugins));
+    let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(notifiers));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
     tokio::join!(mqtt.run(), composite.run());

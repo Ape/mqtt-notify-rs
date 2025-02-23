@@ -13,25 +13,28 @@ pub trait Notifier {
 pub type DynNotifier = dyn Notifier + Send + Sync;
 
 pub struct CompositeNotifier {
-    plugins: Vec<Box<DynNotifier>>,
+    notifiers: Vec<Box<DynNotifier>>,
 }
 
 impl CompositeNotifier {
-    pub fn new(plugins: Vec<Box<DynNotifier>>) -> Self {
-        CompositeNotifier { plugins }
+    pub fn new(notifiers: Vec<Box<DynNotifier>>) -> Self {
+        CompositeNotifier { notifiers }
     }
 }
 
 #[async_trait]
 impl Notifier for CompositeNotifier {
     async fn notify(&self, title: &str, body: &str) {
-        let futures = self.plugins.iter().map(|plugin| plugin.notify(title, body));
+        let futures = self
+            .notifiers
+            .iter()
+            .map(|notifier| notifier.notify(title, body));
         future::join_all(futures).await;
     }
 
     async fn run(&self) {
-        let runs = self.plugins.iter().map(|plugin| plugin.run());
-        future::join_all(runs).await;
+        let futures = self.notifiers.iter().map(|notifier| notifier.run());
+        future::join_all(futures).await;
     }
 }
 
