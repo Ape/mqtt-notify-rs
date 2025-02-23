@@ -23,7 +23,7 @@ impl XMPPNotifier {
         let jid = BareJid::from_str(jid).expect("Invalid JID");
         let recipient_jids = recipients
             .iter()
-            .map(|r| BareJid::from_str(r).expect("Invalid recipient JID"))
+            .map(|x| BareJid::from_str(x).expect("Invalid recipient JID"))
             .collect();
 
         let (sender, receiver) = mpsc::unbounded_channel();

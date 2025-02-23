@@ -25,16 +25,11 @@ impl CompositeNotifier {
 #[async_trait]
 impl Notifier for CompositeNotifier {
     async fn notify(&self, title: &str, body: &str) {
-        let futures = self
-            .notifiers
-            .iter()
-            .map(|notifier| notifier.notify(title, body));
-        future::join_all(futures).await;
+        future::join_all(self.notifiers.iter().map(|x| x.notify(title, body))).await;
     }
 
     async fn run(&self) {
-        let futures = self.notifiers.iter().map(|notifier| notifier.run());
-        future::join_all(futures).await;
+        future::join_all(self.notifiers.iter().map(|x| x.run())).await;
     }
 }
 
