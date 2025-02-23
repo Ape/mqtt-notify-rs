@@ -1,0 +1,78 @@
+use std::error::Error;
+use std::sync::Arc;
+use std::time::Duration;
+
+use rumqttc::{
+    AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport,
+};
+use tokio::time;
+
+use crate::config::MQTTConfig;
+use crate::notifications::DynNotificationPlugin;
+
+pub struct MQTTNotificationClient {
+    client: AsyncClient,
+    eventloop: EventLoop,
+    topic: String,
+    notifier: Arc<DynNotificationPlugin>,
+}
+
+impl MQTTNotificationClient {
+    pub fn new(config: &MQTTConfig, notifier: Arc<DynNotificationPlugin>) -> Self {
+        let client_id = format!("mqtt-notify-rs-{}", rand::random::<u16>());
+        let mut mqttoptions = MqttOptions::new(client_id, &config.host, config.port);
+
+        if config.scheme == "mqtts" {
+            mqttoptions.set_transport(Transport::Tls(TlsConfiguration::default()));
+        }
+
+        if let Some(credentials) = &config.credentials {
+            mqttoptions.set_credentials(&credentials.username, &credentials.password);
+        }
+
+        let (client, eventloop) = AsyncClient::new(mqttoptions, 10);
+
+        MQTTNotificationClient {
+            client,
+            eventloop,
+            topic: config.topic.clone(),
+            notifier,
+        }
+    }
+
+    pub async fn run(&mut self) {
+        if let Err(e) = self.client.subscribe(&self.topic, QoS::AtLeastOnce).await {
+            log::error!("MQTT subscription error: {:?}", e);
+            return;
+        }
+
+        loop {
+            match self.eventloop.poll().await {
+                Ok(Event::Incoming(packet)) => match packet {
+                    Packet::ConnAck(_) => {
+                        log::info!("Connected to the MQTT broker");
+                    }
+                    Packet::SubAck(_) => {
+                        log::info!("Listening for notifications on MQTT topic '{}'", self.topic);
+                    }
+                    Packet::Publish(publish) => {
+                        let payload = String::from_utf8_lossy(&publish.payload);
+                        let mut lines = payload.lines();
+
+                        if let Some(title) = lines.next() {
+                            let body = lines.collect::<Vec<&str>>().join("\n");
+                            log::info!(">> {} - {}", title, body);
+                            self.notifier.notify(title, &body).await;
+                        }
+                    }
+                    _ => {}
+                },
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("MQTT error: {}", e.source().unwrap_or(&e));
+                    time::sleep(Duration::from_secs(2)).await;
+                }
+            }
+        }
+    }
+}
