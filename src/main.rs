@@ -51,13 +51,10 @@ async fn main() {
 
     let args = Args::parse();
 
-    let config = match MQTTConfig::new(&args.mqtt_url, "notifications") {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            log::error!("{}", e);
-            std::process::exit(1);
-        }
-    };
+    let config = MQTTConfig::new(&args.mqtt_url, "notifications").unwrap_or_else(|e| {
+        log::error!("{}", e);
+        std::process::exit(1)
+    });
 
     let mut notifiers: Vec<Box<DynNotifier>> = Vec::new();
 
