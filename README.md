@@ -3,7 +3,7 @@
 mqtt-notify-rs is a Rust-based notification bridge that subscribes to an MQTT
 topic and forwards incoming messages as notifications to one or more channels.
 
-## Notification plugins
+## Notifiers
 
 - **Desktop:** Utilizes the system's native notification mechanism.
 - **XMPP:** Sends messages to a specified XMPP recipient.

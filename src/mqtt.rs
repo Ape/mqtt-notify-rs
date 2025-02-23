@@ -8,17 +8,17 @@ use rumqttc::{
 use tokio::time;
 
 use crate::config::MQTTConfig;
-use crate::notifications::DynNotificationPlugin;
+use crate::notifier::DynNotifier;
 
 pub struct MQTTNotificationClient {
     client: AsyncClient,
     eventloop: EventLoop,
     topic: String,
-    notifier: Arc<DynNotificationPlugin>,
+    notifier: Arc<DynNotifier>,
 }
 
 impl MQTTNotificationClient {
-    pub fn new(config: &MQTTConfig, notifier: Arc<DynNotificationPlugin>) -> Self {
+    pub fn new(config: &MQTTConfig, notifier: Arc<DynNotifier>) -> Self {
         let client_id = format!("mqtt-notify-rs-{}", rand::random::<u16>());
         let mut mqttoptions = MqttOptions::new(client_id, &config.host, config.port);
 

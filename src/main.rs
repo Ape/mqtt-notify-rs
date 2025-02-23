@@ -1,6 +1,6 @@
 mod config;
 mod mqtt;
-mod notifications;
+mod notifier;
 
 use std::io::Write;
 use std::sync::Arc;
@@ -10,10 +10,7 @@ use rustls::crypto;
 
 use crate::config::MQTTConfig;
 use crate::mqtt::MQTTNotificationClient;
-use crate::notifications::{
-    CompositeNotificationPlugin, DesktopNotificationPlugin, DynNotificationPlugin,
-    XMPPNotificationPlugin,
-};
+use crate::notifier::{CompositeNotifier, DesktopNotifier, DynNotifier, XMPPNotifier};
 
 #[derive(clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -62,16 +59,14 @@ async fn main() {
         }
     };
 
-    let mut plugins: Vec<Box<DynNotificationPlugin>> = Vec::new();
+    let mut plugins: Vec<Box<DynNotifier>> = Vec::new();
 
     if args.desktop {
-        plugins.push(Box::new(DesktopNotificationPlugin::new()));
+        plugins.push(Box::new(DesktopNotifier::new()));
     }
 
     if let Some(recipient) = args.xmpp {
-        match XMPPNotificationPlugin::from_credentials_file(&recipient, &args.xmpp_credentials)
-            .await
-        {
+        match XMPPNotifier::from_credentials_file(&recipient, &args.xmpp_credentials).await {
             Ok(plugin) => plugins.push(Box::new(plugin)),
             Err(e) => {
                 log::error!(
@@ -88,7 +83,7 @@ async fn main() {
         log::warn!("No notification plugins enabled");
     }
 
-    let composite: Arc<DynNotificationPlugin> = Arc::new(CompositeNotificationPlugin::new(plugins));
+    let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(plugins));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
     tokio::join!(mqtt.run(), composite.run());

@@ -8,9 +8,9 @@ use xmpp::jid::BareJid;
 use xmpp::{ClientBuilder, ClientType, Event};
 use xmpp_parsers::message::MessageType;
 
-use crate::notifications::NotificationPlugin;
+use crate::notifier::Notifier;
 
-pub struct XMPPNotificationPlugin {
+pub struct XMPPNotifier {
     jid: BareJid,
     password: String,
     recipient: BareJid,
@@ -18,7 +18,7 @@ pub struct XMPPNotificationPlugin {
     receiver: Mutex<UnboundedReceiver<String>>,
 }
 
-impl XMPPNotificationPlugin {
+impl XMPPNotifier {
     pub async fn new(jid: &str, password: &str, recipient: &str) -> Self {
         let jid = BareJid::from_str(jid).expect("Invalid JID");
         let recipient_jid = BareJid::from_str(recipient).expect("Invalid recipient JID");
@@ -55,7 +55,7 @@ impl XMPPNotificationPlugin {
 }
 
 #[async_trait]
-impl NotificationPlugin for XMPPNotificationPlugin {
+impl Notifier for XMPPNotifier {
     async fn notify(&self, title: &str, body: &str) {
         let message = format!("{}\n{}", title, body);
 

@@ -5,25 +5,25 @@ use async_trait::async_trait;
 use futures::future;
 
 #[async_trait]
-pub trait NotificationPlugin {
+pub trait Notifier {
     async fn notify(&self, title: &str, body: &str);
     async fn run(&self) {}
 }
 
-pub type DynNotificationPlugin = dyn NotificationPlugin + Send + Sync;
+pub type DynNotifier = dyn Notifier + Send + Sync;
 
-pub struct CompositeNotificationPlugin {
-    plugins: Vec<Box<DynNotificationPlugin>>,
+pub struct CompositeNotifier {
+    plugins: Vec<Box<DynNotifier>>,
 }
 
-impl CompositeNotificationPlugin {
-    pub fn new(plugins: Vec<Box<DynNotificationPlugin>>) -> Self {
-        CompositeNotificationPlugin { plugins }
+impl CompositeNotifier {
+    pub fn new(plugins: Vec<Box<DynNotifier>>) -> Self {
+        CompositeNotifier { plugins }
     }
 }
 
 #[async_trait]
-impl NotificationPlugin for CompositeNotificationPlugin {
+impl Notifier for CompositeNotifier {
     async fn notify(&self, title: &str, body: &str) {
         let futures = self.plugins.iter().map(|plugin| plugin.notify(title, body));
         future::join_all(futures).await;
@@ -35,5 +35,5 @@ impl NotificationPlugin for CompositeNotificationPlugin {
     }
 }
 
-pub use desktop::DesktopNotificationPlugin;
-pub use xmpp::XMPPNotificationPlugin;
+pub use desktop::DesktopNotifier;
+pub use xmpp::XMPPNotifier;

@@ -1,17 +1,17 @@
 use async_trait::async_trait;
 
-use crate::notifications::NotificationPlugin;
+use crate::notifier::Notifier;
 
-pub struct DesktopNotificationPlugin;
+pub struct DesktopNotifier;
 
-impl DesktopNotificationPlugin {
+impl DesktopNotifier {
     pub fn new() -> Self {
-        DesktopNotificationPlugin
+        DesktopNotifier
     }
 }
 
 #[async_trait]
-impl NotificationPlugin for DesktopNotificationPlugin {
+impl Notifier for DesktopNotifier {
     async fn notify(&self, title: &str, body: &str) {
         let _ = notify_rust::Notification::new()
             .summary(title)
