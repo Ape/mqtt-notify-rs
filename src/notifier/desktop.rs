@@ -6,8 +6,8 @@ use crate::notifier::Notifier;
 pub struct DesktopNotifier;
 
 impl DesktopNotifier {
-    pub fn new() -> Self {
-        DesktopNotifier
+    pub const fn new() -> Self {
+        Self
     }
 }
 

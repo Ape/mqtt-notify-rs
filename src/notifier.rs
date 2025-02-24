@@ -18,7 +18,7 @@ pub struct CompositeNotifier {
 
 impl CompositeNotifier {
     pub fn new(notifiers: Vec<Box<DynNotifier>>) -> Self {
-        CompositeNotifier { notifiers }
+        Self { notifiers }
     }
 }
 

@@ -1,6 +1,6 @@
-use std::error::Error;
+use core::error::Error as _;
+use core::time::Duration;
 use std::sync::Arc;
-use std::time::Duration;
 
 use rumqttc::{
     AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport,
@@ -26,13 +26,13 @@ impl MQTTNotificationClient {
             mqttoptions.set_transport(Transport::Tls(TlsConfiguration::default()));
         }
 
-        if let Some(credentials) = &config.credentials {
+        if let Some(ref credentials) = config.credentials {
             mqttoptions.set_credentials(&credentials.username, &credentials.password);
         }
 
         let (client, eventloop) = AsyncClient::new(mqttoptions, 10);
 
-        MQTTNotificationClient {
+        Self {
             client,
             eventloop,
             topic: config.topic.clone(),

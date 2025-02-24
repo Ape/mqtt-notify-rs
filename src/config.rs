@@ -1,4 +1,5 @@
 use std::env;
+use std::io;
 
 use url::Url;
 
@@ -27,7 +28,7 @@ pub enum ConfigError {
     MissingHost,
 
     #[error("Failed to read password: {0}")]
-    PasswordReadError(#[from] std::io::Error),
+    PasswordReadError(#[from] io::Error),
 }
 
 impl MQTTConfig {
@@ -39,7 +40,7 @@ impl MQTTConfig {
             return Err(ConfigError::InvalidScheme);
         }
 
-        let host = url.host_str().ok_or(ConfigError::MissingHost)?.to_string();
+        let host = url.host_str().ok_or(ConfigError::MissingHost)?.to_owned();
 
         let port = url
             .port()
@@ -49,16 +50,18 @@ impl MQTTConfig {
             let path = url.path().trim_start_matches('/');
 
             if path.is_empty() {
-                default_topic.to_string()
+                default_topic.to_owned()
             } else {
-                path.to_string()
+                path.to_owned()
             }
         };
 
-        let credentials = if !url.username().is_empty() {
+        let has_username = !url.username().is_empty();
+
+        let credentials = has_username.then_some({
             let password = if let Some(pass) = url.password() {
                 log::warn!("It isn't safe to provide password in the command line!");
-                pass.to_string()
+                pass.to_owned()
             } else if let Ok(pass) = env::var("MQTT_PASSWORD") {
                 pass
             } else {
@@ -66,15 +69,13 @@ impl MQTTConfig {
                 rpassword::prompt_password("Password: ")?
             };
 
-            Some(MQTTCredentials {
-                username: url.username().to_string(),
+            MQTTCredentials {
+                username: url.username().to_owned(),
                 password,
-            })
-        } else {
-            None
-        };
+            }
+        });
 
-        Ok(MQTTConfig {
+        Ok(Self {
             scheme,
             host,
             port,

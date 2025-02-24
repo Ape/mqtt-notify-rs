@@ -1,11 +1,17 @@
+#![warn(clippy::pedantic)]
+#![warn(clippy::pattern_type_mismatch)]
+#![warn(clippy::std_instead_of_core)]
+#![warn(clippy::str_to_string)]
+#![warn(clippy::unused_trait_names)]
+
 mod config;
 mod mqtt;
 mod notifier;
 
-use std::io::Write;
+use std::io::Write as _;
 use std::sync::Arc;
 
-use clap::Parser;
+use clap::Parser as _;
 use rustls::crypto;
 
 use crate::config::MQTTConfig;
@@ -63,14 +69,10 @@ async fn main() {
     }
 
     if !args.xmpp.is_empty() {
-        match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials).await {
+        match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials) {
             Ok(notifier) => notifiers.push(Box::new(notifier)),
             Err(e) => {
-                log::error!(
-                    "Error loading XMPP credentials from '{}': {}",
-                    args.xmpp_credentials,
-                    e
-                );
+                log::error!("XMPP error: {}", e);
                 std::process::exit(1);
             }
         }
