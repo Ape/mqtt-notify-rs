@@ -26,7 +26,7 @@ impl MQTTNotificationClient {
             mqttoptions.set_transport(Transport::Tls(TlsConfiguration::default()));
         }
 
-        if let Some(credentials) = &config.credentials {
+        if let Some(ref credentials) = config.credentials {
             mqttoptions.set_credentials(&credentials.username, &credentials.password);
         }
 
