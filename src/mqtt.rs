@@ -32,7 +32,7 @@ impl MQTTNotificationClient {
 
         let (client, eventloop) = AsyncClient::new(mqttoptions, 10);
 
-        MQTTNotificationClient {
+        Self {
             client,
             eventloop,
             topic: config.topic.clone(),

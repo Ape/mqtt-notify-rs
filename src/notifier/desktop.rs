@@ -7,7 +7,7 @@ pub struct DesktopNotifier;
 
 impl DesktopNotifier {
     pub fn new() -> Self {
-        DesktopNotifier
+        Self
     }
 }
 

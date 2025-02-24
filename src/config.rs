@@ -74,7 +74,7 @@ impl MQTTConfig {
             }
         });
 
-        Ok(MQTTConfig {
+        Ok(Self {
             scheme,
             host,
             port,
