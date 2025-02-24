@@ -88,7 +88,7 @@ impl Notifier for XMPPNotifier {
                 },
                 Some(events) = agent.wait_for_events() => {
                     for event in events {
-                        if let Event::Online = event {
+                        if matches!(event, Event::Online) {
                             log::info!("XMPP agent online as {}", agent.bound_jid().unwrap());
                         }
                     }
