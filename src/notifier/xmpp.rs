@@ -36,7 +36,7 @@ impl XMPPNotifier {
 
         Ok(Self {
             jid,
-            password: password.to_string(),
+            password: password.to_owned(),
             recipients: recipient_jids,
             sender,
             receiver: Mutex::new(receiver),

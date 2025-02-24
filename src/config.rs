@@ -40,7 +40,7 @@ impl MQTTConfig {
             return Err(ConfigError::InvalidScheme);
         }
 
-        let host = url.host_str().ok_or(ConfigError::MissingHost)?.to_string();
+        let host = url.host_str().ok_or(ConfigError::MissingHost)?.to_owned();
 
         let port = url
             .port()
@@ -50,9 +50,9 @@ impl MQTTConfig {
             let path = url.path().trim_start_matches('/');
 
             if path.is_empty() {
-                default_topic.to_string()
+                default_topic.to_owned()
             } else {
-                path.to_string()
+                path.to_owned()
             }
         };
 
@@ -61,7 +61,7 @@ impl MQTTConfig {
         let credentials = has_username.then_some({
             let password = if let Some(pass) = url.password() {
                 log::warn!("It isn't safe to provide password in the command line!");
-                pass.to_string()
+                pass.to_owned()
             } else if let Ok(pass) = env::var("MQTT_PASSWORD") {
                 pass
             } else {
@@ -70,7 +70,7 @@ impl MQTTConfig {
             };
 
             MQTTCredentials {
-                username: url.username().to_string(),
+                username: url.username().to_owned(),
                 password,
             }
         });
