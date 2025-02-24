@@ -19,7 +19,7 @@ pub struct XMPPNotifier {
 }
 
 impl XMPPNotifier {
-    pub async fn new(jid: &str, password: &str, recipients: &[String]) -> Self {
+    pub fn new(jid: &str, password: &str, recipients: &[String]) -> Self {
         let jid = BareJid::from_str(jid).expect("Invalid JID");
         let recipient_jids = recipients
             .iter()
@@ -37,7 +37,7 @@ impl XMPPNotifier {
         }
     }
 
-    pub async fn from_credentials_file(
+    pub fn from_credentials_file(
         recipients: &[String],
         filepath: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
@@ -53,7 +53,7 @@ impl XMPPNotifier {
             .next()
             .ok_or_else(|| format!("Missing password in {path}"))?;
 
-        Ok(Self::new(jid, password, recipients).await)
+        Ok(Self::new(jid, password, recipients))
     }
 }
 

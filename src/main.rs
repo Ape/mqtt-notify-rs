@@ -63,7 +63,7 @@ async fn main() {
     }
 
     if !args.xmpp.is_empty() {
-        match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials).await {
+        match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials) {
             Ok(notifier) => notifiers.push(Box::new(notifier)),
             Err(e) => {
                 log::error!(
