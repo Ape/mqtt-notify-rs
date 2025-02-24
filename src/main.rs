@@ -2,10 +2,10 @@ mod config;
 mod mqtt;
 mod notifier;
 
-use std::io::Write;
+use std::io::Write as _;
 use std::sync::Arc;
 
-use clap::Parser;
+use clap::Parser as _;
 use rustls::crypto;
 
 use crate::config::MQTTConfig;

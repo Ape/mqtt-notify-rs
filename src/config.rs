@@ -1,4 +1,5 @@
 use std::env;
+use std::io;
 
 use url::Url;
 
@@ -27,7 +28,7 @@ pub enum ConfigError {
     MissingHost,
 
     #[error("Failed to read password: {0}")]
-    PasswordReadError(#[from] std::io::Error),
+    PasswordReadError(#[from] io::Error),
 }
 
 impl MQTTConfig {

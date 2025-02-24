@@ -1,6 +1,6 @@
-use std::error::Error;
+use core::error::Error as _;
+use core::time::Duration;
 use std::sync::Arc;
-use std::time::Duration;
 
 use rumqttc::{
     AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport,

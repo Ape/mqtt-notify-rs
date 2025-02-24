@@ -1,5 +1,6 @@
+use core::error::Error;
+use core::str::FromStr as _;
 use std::fs;
-use std::str::FromStr;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -40,7 +41,7 @@ impl XMPPNotifier {
     pub fn from_credentials_file(
         recipients: &[String],
         filepath: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn Error>> {
         let path = shellexpand::tilde(filepath).to_string();
         let content = fs::read_to_string(&path)?;
         let mut parts = content.split_whitespace();
