@@ -20,22 +20,27 @@ pub struct XMPPNotifier {
 }
 
 impl XMPPNotifier {
-    pub fn new(jid: &str, password: &str, recipients: &[String]) -> Self {
-        let jid = BareJid::from_str(jid).expect("Invalid JID");
-        let recipient_jids = recipients
+    pub fn new(jid: &str, password: &str, recipients: &[String]) -> Result<Self, Box<dyn Error>> {
+        let jid =
+            BareJid::from_str(jid).map_err(|e| format!("Failed to parse JID '{jid}': {e}"))?;
+
+        let recipient_jids: Vec<BareJid> = recipients
             .iter()
-            .map(|x| BareJid::from_str(x).expect("Invalid recipient JID"))
-            .collect();
+            .map(|x| {
+                BareJid::from_str(x)
+                    .map_err(|e| format!("Failed to parse recipient JID '{x}': {e}"))
+            })
+            .collect::<Result<_, _>>()?;
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
-        Self {
+        Ok(Self {
             jid,
             password: password.to_string(),
             recipients: recipient_jids,
             sender,
             receiver: Mutex::new(receiver),
-        }
+        })
     }
 
     pub fn from_credentials_file(
@@ -43,18 +48,19 @@ impl XMPPNotifier {
         filepath: &str,
     ) -> Result<Self, Box<dyn Error>> {
         let path = shellexpand::tilde(filepath).to_string();
-        let content = fs::read_to_string(&path)?;
+        let content = fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read credentials file '{path}': {e}"))?;
         let mut parts = content.split_whitespace();
 
         let jid = parts
             .next()
-            .ok_or_else(|| format!("Missing jid in {path}"))?;
+            .ok_or_else(|| format!("Missing jid in '{path}'"))?;
 
         let password = parts
             .next()
-            .ok_or_else(|| format!("Missing password in {path}"))?;
+            .ok_or_else(|| format!("Missing password in '{path}'"))?;
 
-        Ok(Self::new(jid, password, recipients))
+        Self::new(jid, password, recipients)
     }
 }
 
@@ -91,7 +97,11 @@ impl Notifier for XMPPNotifier {
                     if let Some(events) = events {
                         for event in events {
                             if matches!(event, Event::Online) {
-                                log::info!("XMPP agent online as {}", agent.bound_jid().unwrap());
+                                if let Some(bound_jid) = agent.bound_jid() {
+                                    log::info!("XMPP agent online as {}", bound_jid);
+                                } else {
+                                    log::warn!("XMPP agent online without JID");
+                                }
                             }
                         }
                     }

@@ -66,11 +66,7 @@ async fn main() {
         match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials) {
             Ok(notifier) => notifiers.push(Box::new(notifier)),
             Err(e) => {
-                log::error!(
-                    "Error loading XMPP credentials from '{}': {}",
-                    args.xmpp_credentials,
-                    e
-                );
+                log::error!("XMPP error: {}", e);
                 std::process::exit(1);
             }
         }
