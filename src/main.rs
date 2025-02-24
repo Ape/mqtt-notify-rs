@@ -1,3 +1,9 @@
+#![warn(clippy::pedantic)]
+#![warn(clippy::pattern_type_mismatch)]
+#![warn(clippy::std_instead_of_core)]
+#![warn(clippy::str_to_string)]
+#![warn(clippy::unused_trait_names)]
+
 mod config;
 mod mqtt;
 mod notifier;
