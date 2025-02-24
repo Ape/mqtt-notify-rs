@@ -55,7 +55,9 @@ impl MQTTConfig {
             }
         };
 
-        let credentials = if !url.username().is_empty() {
+        let has_username = !url.username().is_empty();
+
+        let credentials = has_username.then_some({
             let password = if let Some(pass) = url.password() {
                 log::warn!("It isn't safe to provide password in the command line!");
                 pass.to_string()
@@ -66,13 +68,11 @@ impl MQTTConfig {
                 rpassword::prompt_password("Password: ")?
             };
 
-            Some(MQTTCredentials {
+            MQTTCredentials {
                 username: url.username().to_string(),
                 password,
-            })
-        } else {
-            None
-        };
+            }
+        });
 
         Ok(MQTTConfig {
             scheme,
