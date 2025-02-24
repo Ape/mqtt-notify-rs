@@ -72,11 +72,9 @@ impl Notifier for XMPPNotifier {
             .set_client(ClientType::Bot, "mqtt-notify-rs")
             .build();
 
-        let mut receiver = self.receiver.lock().await;
-
         loop {
             tokio::select! {
-                Some(msg) = receiver.recv() => {
+                Some(msg) = async { self.receiver.lock().await.recv().await } => {
                     for recipient in &self.recipients {
                         agent.send_message(
                             recipient.clone().into(),
