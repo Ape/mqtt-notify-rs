@@ -47,11 +47,11 @@ impl XMPPNotifier {
 
         let jid = parts
             .next()
-            .ok_or_else(|| format!("Missing jid in {}", path))?;
+            .ok_or_else(|| format!("Missing jid in {path}"))?;
 
         let password = parts
             .next()
-            .ok_or_else(|| format!("Missing password in {}", path))?;
+            .ok_or_else(|| format!("Missing password in {path}"))?;
 
         Ok(Self::new(jid, password, recipients).await)
     }
@@ -60,7 +60,7 @@ impl XMPPNotifier {
 #[async_trait]
 impl Notifier for XMPPNotifier {
     async fn notify(&self, title: &str, body: &str) {
-        let message = format!("{}\n{}", title, body);
+        let message = format!("{title}\n{body}");
 
         if let Err(e) = self.sender.send(message) {
             log::error!("Failed to send notification: {}", e);
