@@ -1,6 +1,7 @@
 use core::error::Error;
 use core::str::FromStr as _;
 use std::fs;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -74,13 +75,20 @@ impl Notifier for XMPPNotifier {
         }
     }
 
-    async fn run(&self) {
+    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
         let mut agent = ClientBuilder::new(self.jid.clone(), &self.password)
             .set_client(ClientType::Bot, "mqtt-notify-rs")
             .build();
 
         loop {
             tokio::select! {
+                () = shutdown.notified() => {
+                    if let Err(e) = agent.disconnect().await {
+                        log::error!("Error during XMPP disconnect: {}", e);
+                    }
+
+                    return;
+                }
                 msg = async { self.receiver.lock().await.recv().await } => {
                     if let Some(msg) = msg {
                         for recipient in &self.recipients {
@@ -92,7 +100,7 @@ impl Notifier for XMPPNotifier {
                             ).await;
                         }
                     }
-                },
+                }
                 events = agent.wait_for_events() => {
                     if let Some(events) = events {
                         for event in events {

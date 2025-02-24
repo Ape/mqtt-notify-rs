@@ -1,5 +1,4 @@
 #![warn(clippy::pedantic)]
-#![warn(clippy::pattern_type_mismatch)]
 #![warn(clippy::std_instead_of_core)]
 #![warn(clippy::str_to_string)]
 #![warn(clippy::unused_trait_names)]
@@ -82,8 +81,41 @@ async fn main() {
         log::warn!("No notifiers enabled");
     }
 
+    let shutdown = Arc::new(tokio::sync::Notify::new());
     let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(notifiers));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
-    tokio::join!(mqtt.run(), composite.run());
+    tokio::join!(
+        signal_handler(shutdown.clone()),
+        mqtt.run(shutdown.clone()),
+        composite.run(shutdown.clone()),
+    );
+}
+
+async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix;
+
+        let mut sigint =
+            unix::signal(unix::SignalKind::interrupt()).expect("Failed to install SIGINT handler");
+
+        let mut sigterm =
+            unix::signal(unix::SignalKind::terminate()).expect("Failed to install SIGTERM handler");
+
+        tokio::select! {
+            _ = sigint.recv() => {},
+            _ = sigterm.recv() => {},
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install CTRL-C handler");
+    }
+
+    log::info!("Shutting down...");
+    shutdown.notify_waiters();
 }
