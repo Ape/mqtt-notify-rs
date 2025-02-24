@@ -7,6 +7,7 @@ mod config;
 mod mqtt;
 mod notifier;
 
+use core::error::Error;
 use std::io::Write as _;
 use std::sync::Arc;
 
@@ -54,12 +55,13 @@ async fn main() {
         .install_default()
         .expect("Failed to install crypto provider");
 
-    let args = Args::parse();
+    if let Err(e) = run(Args::parse()).await {
+        log::error!("{e}");
+    };
+}
 
-    let config = MQTTConfig::new(&args.mqtt_url, "notifications").unwrap_or_else(|e| {
-        log::error!("{}", e);
-        std::process::exit(1)
-    });
+async fn run(args: Args) -> Result<(), Box<dyn Error>> {
+    let config = MQTTConfig::new(&args.mqtt_url, "notifications")?;
 
     let mut notifiers: Vec<Box<DynNotifier>> = Vec::new();
 
@@ -68,13 +70,9 @@ async fn main() {
     }
 
     if !args.xmpp.is_empty() {
-        match XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials) {
-            Ok(notifier) => notifiers.push(Box::new(notifier)),
-            Err(e) => {
-                log::error!("XMPP error: {}", e);
-                std::process::exit(1);
-            }
-        }
+        let notifier = XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials)
+            .map_err(|e| format!("XMPP error: {e}"))?;
+        notifiers.push(Box::new(notifier));
     }
 
     if notifiers.is_empty() {
@@ -90,6 +88,8 @@ async fn main() {
         mqtt.run(shutdown.clone()),
         composite.run(shutdown.clone()),
     );
+
+    Ok(())
 }
 
 async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) {
