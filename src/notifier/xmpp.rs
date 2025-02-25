@@ -25,7 +25,7 @@ impl XMPPNotifier {
     pub fn new(jid: &str, password: &str, recipients: &[String]) -> anyhow::Result<Self> {
         let jid = BareJid::from_str(jid).with_context(|| format!("Failed to parse JID '{jid}'"))?;
 
-        let recipient_jids: Vec<BareJid> = recipients
+        let recipient_jids = recipients
             .iter()
             .map(|x| {
                 BareJid::from_str(x).with_context(|| format!("Failed to parse recipient JID '{x}'"))
