@@ -12,6 +12,8 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use clap::Parser as _;
+use futures::future;
+use futures::stream::StreamExt as _;
 use rustls::crypto;
 
 use crate::config::MQTTConfig;
@@ -83,39 +85,32 @@ async fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(notifiers));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
-    tokio::join!(
-        signal_handler(shutdown.clone()),
-        mqtt.run(shutdown.clone()),
-        composite.run(shutdown.clone()),
-    );
+    tokio::select! {
+        _ = future::join(
+            mqtt.run(shutdown.clone()),
+            composite.run(shutdown.clone()),
+        ) => {}
+        result = signal_handler(shutdown) => result?
+    }
 
     Ok(())
 }
 
-async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix;
+async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) -> Result<(), Box<dyn Error>> {
+    let mut signals = signal_hook_tokio::Signals::new([
+        signal_hook::consts::SIGINT,
+        signal_hook::consts::SIGTERM,
+    ])?;
 
-        let mut sigint =
-            unix::signal(unix::SignalKind::interrupt()).expect("Failed to install SIGINT handler");
+    signals.next().await;
+    log::info!("Shutting down...");
+    shutdown.notify_waiters();
 
-        let mut sigterm =
-            unix::signal(unix::SignalKind::terminate()).expect("Failed to install SIGTERM handler");
-
-        tokio::select! {
-            _ = sigint.recv() => {},
-            _ = sigterm.recv() => {},
+    while let Some(signal) = signals.next().await {
+        if signal == signal_hook::consts::SIGINT {
+            Err("Didn't have time to gracefully disconnect and cleanup")?;
         }
     }
 
-    #[cfg(not(unix))]
-    {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("Failed to install CTRL-C handler");
-    }
-
-    log::info!("Shutting down...");
-    shutdown.notify_waiters();
+    Ok(())
 }
