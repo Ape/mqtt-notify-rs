@@ -71,20 +71,14 @@ impl Notifier for XMPPNotifier {
         }
     }
 
-    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
+    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
         let mut agent = ClientBuilder::new(self.jid.clone(), &self.password)
             .set_client(ClientType::Bot, "mqtt-notify-rs")
             .build();
 
         loop {
             tokio::select! {
-                () = shutdown.notified() => {
-                    if let Err(e) = agent.disconnect().await {
-                        log::error!("Error during XMPP disconnect: {}", e);
-                    }
-
-                    return;
-                }
+                () = shutdown.notified() => break,
                 msg = async { self.receiver.lock().await.recv().await } => {
                     if let Some(msg) = msg {
                         for recipient in &self.recipients {
@@ -112,5 +106,10 @@ impl Notifier for XMPPNotifier {
                 }
             }
         }
+
+        agent
+            .disconnect()
+            .await
+            .context("Error during XMPP disconnect")
     }
 }
