@@ -13,7 +13,6 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use anyhow::bail;
 use clap::Parser as _;
-use futures::future;
 use futures::stream::StreamExt as _;
 use rustls::crypto;
 
@@ -58,12 +57,17 @@ async fn main() {
         .install_default()
         .expect("Failed to install crypto provider");
 
-    if let Err(e) = run(Args::parse()).await {
+    let shutdown = Arc::new(tokio::sync::Notify::new());
+
+    if let Err(e) = tokio::select! {
+        result = run(Args::parse(), shutdown.clone()) => result,
+        result = signal_handler(shutdown.clone()) => result,
+    } {
         log::error!("{e:#}");
     };
 }
 
-async fn run(args: Args) -> anyhow::Result<()> {
+async fn run(args: Args, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
     let config = MQTTConfig::new(&args.mqtt_url, "notifications").context("MQTT config error")?;
 
     let mut notifiers: Vec<Box<DynNotifier>> = Vec::new();
@@ -82,18 +86,10 @@ async fn run(args: Args) -> anyhow::Result<()> {
         log::warn!("No notifiers enabled");
     }
 
-    let shutdown = Arc::new(tokio::sync::Notify::new());
     let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(notifiers));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
-    tokio::select! {
-        _ = future::join(
-            mqtt.run(shutdown.clone()),
-            composite.run(shutdown.clone()),
-        ) => {}
-        result = signal_handler(shutdown) => result?
-    }
-
+    tokio::try_join!(mqtt.run(shutdown.clone()), composite.run(shutdown.clone()))?;
     Ok(())
 }
 

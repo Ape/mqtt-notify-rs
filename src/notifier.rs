@@ -9,7 +9,10 @@ use futures::future;
 #[async_trait]
 pub trait Notifier {
     async fn notify(&self, title: &str, body: &str);
-    async fn run(&self, _shutdown: Arc<tokio::sync::Notify>) {}
+
+    async fn run(&self, _shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 pub type DynNotifier = dyn Notifier + Send + Sync;
@@ -30,8 +33,9 @@ impl Notifier for CompositeNotifier {
         future::join_all(self.notifiers.iter().map(|x| x.notify(title, body))).await;
     }
 
-    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
-        future::join_all(self.notifiers.iter().map(|x| x.run(shutdown.clone()))).await;
+    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
+        future::try_join_all(self.notifiers.iter().map(|x| x.run(shutdown.clone()))).await?;
+        Ok(())
     }
 }
 
