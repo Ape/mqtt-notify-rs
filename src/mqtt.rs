@@ -41,11 +41,6 @@ impl MQTTNotificationClient {
     }
 
     pub async fn run(&mut self, shutdown: Arc<tokio::sync::Notify>) {
-        if let Err(e) = self.client.subscribe(&self.topic, QoS::AtLeastOnce).await {
-            log::error!("MQTT subscription error: {:?}", e);
-            return;
-        }
-
         loop {
             tokio::select! {
                 () = shutdown.notified() => {
@@ -60,6 +55,12 @@ impl MQTTNotificationClient {
                         Ok(Event::Incoming(packet)) => match packet {
                             Packet::ConnAck(_) => {
                                 log::info!("Connected to the MQTT broker");
+
+                                if let Err(e) = self.client.subscribe(&self.topic, QoS::AtLeastOnce).await {
+                                    log::error!("MQTT subscription error: {:?}", e);
+                                    return;
+                                }
+
                             }
                             Packet::SubAck(_) => {
                                 log::info!("Listening for notifications on MQTT topic '{}'", self.topic);
