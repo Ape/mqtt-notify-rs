@@ -79,27 +79,23 @@ impl Notifier for XMPPNotifier {
         loop {
             tokio::select! {
                 () = shutdown.notified() => break,
-                msg = async { self.receiver.lock().await.recv().await } => {
-                    if let Some(msg) = msg {
-                        for recipient in &self.recipients {
-                            agent.send_message(
-                                recipient.clone().into(),
-                                MessageType::Chat,
-                                "",
-                                &msg,
-                            ).await;
-                        }
+                Some(msg) = async { self.receiver.lock().await.recv().await } => {
+                    for recipient in &self.recipients {
+                        agent.send_message(
+                            recipient.clone().into(),
+                            MessageType::Chat,
+                            "",
+                            &msg,
+                        ).await;
                     }
                 }
-                events = agent.wait_for_events() => {
-                    if let Some(events) = events {
-                        for event in events {
-                            if matches!(event, Event::Online) {
-                                if let Some(bound_jid) = agent.bound_jid() {
-                                    log::info!("XMPP agent online as {}", bound_jid);
-                                } else {
-                                    log::warn!("XMPP agent online without JID");
-                                }
+                Some(events) = agent.wait_for_events() => {
+                    for event in events {
+                        if matches!(event, Event::Online) {
+                            if let Some(bound_jid) = agent.bound_jid() {
+                                log::info!("XMPP agent online as {}", bound_jid);
+                            } else {
+                                log::warn!("XMPP agent online without JID");
                             }
                         }
                     }
