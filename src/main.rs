@@ -7,10 +7,11 @@ mod config;
 mod mqtt;
 mod notifier;
 
-use core::error::Error;
 use std::io::Write as _;
 use std::sync::Arc;
 
+use anyhow::Context as _;
+use anyhow::bail;
 use clap::Parser as _;
 use futures::future;
 use futures::stream::StreamExt as _;
@@ -58,12 +59,12 @@ async fn main() {
         .expect("Failed to install crypto provider");
 
     if let Err(e) = run(Args::parse()).await {
-        log::error!("{e}");
+        log::error!("{e:#}");
     };
 }
 
-async fn run(args: Args) -> Result<(), Box<dyn Error>> {
-    let config = MQTTConfig::new(&args.mqtt_url, "notifications")?;
+async fn run(args: Args) -> anyhow::Result<()> {
+    let config = MQTTConfig::new(&args.mqtt_url, "notifications").context("MQTT config error")?;
 
     let mut notifiers: Vec<Box<DynNotifier>> = Vec::new();
 
@@ -73,7 +74,7 @@ async fn run(args: Args) -> Result<(), Box<dyn Error>> {
 
     if !args.xmpp.is_empty() {
         let notifier = XMPPNotifier::from_credentials_file(&args.xmpp, &args.xmpp_credentials)
-            .map_err(|e| format!("XMPP error: {e}"))?;
+            .context("XMPP error")?;
         notifiers.push(Box::new(notifier));
     }
 
@@ -96,11 +97,12 @@ async fn run(args: Args) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) -> Result<(), Box<dyn Error>> {
+async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
     let mut signals = signal_hook_tokio::Signals::new([
         signal_hook::consts::SIGINT,
         signal_hook::consts::SIGTERM,
-    ])?;
+    ])
+    .context("Failed to install signal handlers")?;
 
     signals.next().await;
     log::info!("Shutting down...");
@@ -108,7 +110,7 @@ async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) -> Result<(), Box<dy
 
     while let Some(signal) = signals.next().await {
         if signal == signal_hook::consts::SIGINT {
-            Err("Didn't have time to gracefully disconnect and cleanup")?;
+            bail!("Didn't have time to gracefully disconnect and cleanup");
         }
     }
 

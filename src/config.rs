@@ -1,6 +1,7 @@
 use std::env;
-use std::io;
 
+use anyhow::Context as _;
+use anyhow::{anyhow, ensure};
 use url::Url;
 
 pub struct MQTTCredentials {
@@ -16,31 +17,21 @@ pub struct MQTTConfig {
     pub credentials: Option<MQTTCredentials>,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum ConfigError {
-    #[error("Invalid MQTT URL: {0}")]
-    InvalidUrl(#[from] url::ParseError),
-
-    #[error("Invalid MQTT scheme: expected mqtt or mqtts")]
-    InvalidScheme,
-
-    #[error("Invalid MQTT URL: missing host")]
-    MissingHost,
-
-    #[error("Failed to read password: {0}")]
-    PasswordReadError(#[from] io::Error),
-}
-
 impl MQTTConfig {
-    pub fn new(mqtt_url: &str, default_topic: &str) -> Result<Self, ConfigError> {
-        let url = Url::parse(mqtt_url)?;
+    pub fn new(mqtt_url: &str, default_topic: &str) -> anyhow::Result<Self> {
+        let url = Url::parse(mqtt_url).context("Invalid URL")?;
         let scheme = url.scheme().to_lowercase();
 
-        if scheme != "mqtt" && scheme != "mqtts" {
-            return Err(ConfigError::InvalidScheme);
-        }
+        ensure!(
+            scheme == "mqtt" || scheme == "mqtts",
+            "Invalid scheme: expected mqtt or mqtts, got {}",
+            scheme
+        );
 
-        let host = url.host_str().ok_or(ConfigError::MissingHost)?.to_owned();
+        let host = url
+            .host_str()
+            .ok_or(anyhow!("Invalid URL: missing host"))?
+            .to_owned();
 
         let port = url
             .port()
@@ -66,7 +57,7 @@ impl MQTTConfig {
                 pass
             } else {
                 log::info!("Note: Password can be provided with env MQTT_PASSWORD");
-                rpassword::prompt_password("Password: ")?
+                rpassword::prompt_password("Password: ").context("Failed to read password")?
             };
 
             MQTTCredentials {

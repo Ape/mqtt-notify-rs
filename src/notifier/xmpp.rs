@@ -1,8 +1,9 @@
-use core::error::Error;
 use core::str::FromStr as _;
 use std::fs;
 use std::sync::Arc;
 
+use anyhow::Context as _;
+use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -21,17 +22,15 @@ pub struct XMPPNotifier {
 }
 
 impl XMPPNotifier {
-    pub fn new(jid: &str, password: &str, recipients: &[String]) -> Result<Self, Box<dyn Error>> {
-        let jid =
-            BareJid::from_str(jid).map_err(|e| format!("Failed to parse JID '{jid}': {e}"))?;
+    pub fn new(jid: &str, password: &str, recipients: &[String]) -> anyhow::Result<Self> {
+        let jid = BareJid::from_str(jid).with_context(|| format!("Failed to parse JID '{jid}'"))?;
 
         let recipient_jids: Vec<BareJid> = recipients
             .iter()
             .map(|x| {
-                BareJid::from_str(x)
-                    .map_err(|e| format!("Failed to parse recipient JID '{x}': {e}"))
+                BareJid::from_str(x).with_context(|| format!("Failed to parse recipient JID '{x}'"))
             })
-            .collect::<Result<_, _>>()?;
+            .collect::<anyhow::Result<_>>()?;
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
@@ -44,22 +43,19 @@ impl XMPPNotifier {
         })
     }
 
-    pub fn from_credentials_file(
-        recipients: &[String],
-        filepath: &str,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn from_credentials_file(recipients: &[String], filepath: &str) -> anyhow::Result<Self> {
         let path = shellexpand::tilde(filepath).to_string();
         let content = fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read credentials file '{path}': {e}"))?;
+            .with_context(|| format!("Failed to read credentials file '{path}'"))?;
         let mut parts = content.split_whitespace();
 
         let jid = parts
             .next()
-            .ok_or_else(|| format!("Missing jid in '{path}'"))?;
+            .ok_or_else(|| anyhow!("Missing jid in '{path}'"))?;
 
         let password = parts
             .next()
-            .ok_or_else(|| format!("Missing password in '{path}'"))?;
+            .ok_or_else(|| anyhow!("Missing password in '{path}'"))?;
 
         Self::new(jid, password, recipients)
     }

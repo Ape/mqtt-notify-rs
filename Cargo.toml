@@ -5,6 +5,7 @@ license = "MIT"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.96"
 async-trait = "0.1"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
@@ -18,7 +19,6 @@ rustls = "0.23.23"
 shellexpand = "3.1"
 signal-hook = "0.3.17"
 signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
-thiserror = "2.0.11"
 tokio = { version = "1", features = ["full"] }
 tokio-xmpp = "4.0.0"
 url = "2"
