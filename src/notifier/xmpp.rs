@@ -25,7 +25,7 @@ impl XMPPNotifier {
     pub fn new(jid: &str, password: &str, recipients: &[String]) -> anyhow::Result<Self> {
         let jid = BareJid::from_str(jid).with_context(|| format!("Failed to parse JID '{jid}'"))?;
 
-        let recipient_jids: Vec<BareJid> = recipients
+        let recipient_jids = recipients
             .iter()
             .map(|x| {
                 BareJid::from_str(x).with_context(|| format!("Failed to parse recipient JID '{x}'"))
@@ -79,27 +79,23 @@ impl Notifier for XMPPNotifier {
         loop {
             tokio::select! {
                 () = shutdown.notified() => break,
-                msg = async { self.receiver.lock().await.recv().await } => {
-                    if let Some(msg) = msg {
-                        for recipient in &self.recipients {
-                            agent.send_message(
-                                recipient.clone().into(),
-                                MessageType::Chat,
-                                "",
-                                &msg,
-                            ).await;
-                        }
+                Some(msg) = async { self.receiver.lock().await.recv().await } => {
+                    for recipient in &self.recipients {
+                        agent.send_message(
+                            recipient.clone().into(),
+                            MessageType::Chat,
+                            "",
+                            &msg,
+                        ).await;
                     }
                 }
-                events = agent.wait_for_events() => {
-                    if let Some(events) = events {
-                        for event in events {
-                            if matches!(event, Event::Online) {
-                                if let Some(bound_jid) = agent.bound_jid() {
-                                    log::info!("XMPP agent online as {}", bound_jid);
-                                } else {
-                                    log::warn!("XMPP agent online without JID");
-                                }
+                Some(events) = agent.wait_for_events() => {
+                    for event in events {
+                        if matches!(event, Event::Online) {
+                            if let Some(bound_jid) = agent.bound_jid() {
+                                log::info!("XMPP agent online as {}", bound_jid);
+                            } else {
+                                log::warn!("XMPP agent online without JID");
                             }
                         }
                     }
