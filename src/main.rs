@@ -12,6 +12,7 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use clap::Parser as _;
+use futures::future;
 use futures::stream::StreamExt as _;
 use rustls::crypto;
 
@@ -84,23 +85,32 @@ async fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(notifiers));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
-    tokio::join!(
-        signal_handler(shutdown.clone()),
-        mqtt.run(shutdown.clone()),
-        composite.run(shutdown.clone()),
-    );
+    tokio::select! {
+        _ = future::join(
+            mqtt.run(shutdown.clone()),
+            composite.run(shutdown.clone()),
+        ) => {}
+        result = signal_handler(shutdown) => result?
+    }
 
     Ok(())
 }
 
-async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) {
+async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) -> Result<(), Box<dyn Error>> {
     let mut signals = signal_hook_tokio::Signals::new([
         signal_hook::consts::SIGINT,
         signal_hook::consts::SIGTERM,
-    ])
-    .expect("Failed to install signal handlers");
+    ])?;
 
     signals.next().await;
     log::info!("Shutting down...");
     shutdown.notify_waiters();
+
+    while let Some(signal) = signals.next().await {
+        if signal == signal_hook::consts::SIGINT {
+            Err("Didn't have time to gracefully disconnect and cleanup")?;
+        }
+    }
+
+    Ok(())
 }
