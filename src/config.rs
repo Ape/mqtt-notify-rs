@@ -1,7 +1,7 @@
 use std::env;
 
 use anyhow::Context as _;
-use anyhow::{anyhow, ensure};
+use anyhow::ensure;
 use url::Url;
 
 pub struct MQTTCredentials {
@@ -30,7 +30,7 @@ impl MQTTConfig {
 
         let host = url
             .host_str()
-            .ok_or(anyhow!("Invalid URL: missing host"))?
+            .context("Invalid URL: missing host")?
             .to_owned();
 
         let port = url
