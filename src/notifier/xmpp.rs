@@ -1,4 +1,5 @@
 use core::str::FromStr as _;
+use core::time::Duration;
 use std::fs;
 use std::sync::Arc;
 
@@ -103,9 +104,11 @@ impl Notifier for XMPPNotifier {
             }
         }
 
-        agent
-            .disconnect()
-            .await
-            .context("Error during XMPP disconnect")
+        match tokio::time::timeout(Duration::from_secs(3), agent.disconnect()).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => log::debug!("XMPP disconnect error: {e}"),
+            Err(_) => log::warn!("XMPP disconnect timed out"),
+        }
+        Ok(())
     }
 }
