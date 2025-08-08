@@ -55,10 +55,32 @@ impl MQTTNotificationClient {
             }
         }
 
-        self.client
-            .disconnect()
-            .await
-            .context("Error during MQTT disconnect")
+        if let Err(e) = self.client.disconnect().await {
+            log::debug!("MQTT disconnect request error: {e}");
+        }
+
+        if tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match self.eventloop.poll().await {
+                    Err(e) => {
+                        log::debug!("MQTT eventloop ended during shutdown: {e}");
+                        break;
+                    }
+                    Ok(Event::Incoming(Packet::Disconnect)) => {
+                        log::debug!("MQTT: received server DISCONNECT");
+                        break;
+                    }
+                    Ok(_) => {}
+                }
+            }
+        })
+        .await
+        .is_err()
+        {
+            log::warn!("MQTT shutdown timed out; forcing close");
+        }
+
+        Ok(())
     }
 
     async fn run_state(&mut self, state: State) -> anyhow::Result<State> {
