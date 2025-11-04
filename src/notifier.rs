@@ -1,16 +1,15 @@
 pub mod desktop;
 pub mod xmpp;
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use futures::future;
+use tokio_graceful_shutdown::SubsystemHandle;
 
 #[async_trait]
 pub trait Notifier {
     async fn notify(&self, title: &str, body: &str);
 
-    async fn run(&self, _shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
+    async fn run(&self, _subsys: &SubsystemHandle) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -33,8 +32,8 @@ impl Notifier for CompositeNotifier {
         future::join_all(self.notifiers.iter().map(|x| x.notify(title, body))).await;
     }
 
-    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
-        future::try_join_all(self.notifiers.iter().map(|x| x.run(shutdown.clone()))).await?;
+    async fn run(&self, subsys: &SubsystemHandle) -> anyhow::Result<()> {
+        future::try_join_all(self.notifiers.iter().map(|notifier| notifier.run(subsys))).await?;
         Ok(())
     }
 }

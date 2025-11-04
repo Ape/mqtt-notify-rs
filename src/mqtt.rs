@@ -6,6 +6,7 @@ use anyhow::Context as _;
 use rumqttc::{
     AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS, TlsConfiguration, Transport,
 };
+use tokio_graceful_shutdown::SubsystemHandle;
 
 use crate::config::MQTTConfig;
 use crate::notifier::DynNotifier;
@@ -45,13 +46,13 @@ impl MQTTNotificationClient {
         }
     }
 
-    pub async fn run(&mut self, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
+    pub async fn run(&mut self, subsys: &SubsystemHandle) -> anyhow::Result<()> {
         let mut state = State::Polling;
 
         loop {
             tokio::select! {
                 next_state = self.run_state(state) => state = next_state?,
-                () = shutdown.notified() => break,
+                () = subsys.on_shutdown_requested() => break,
             }
         }
 
@@ -82,7 +83,7 @@ impl MQTTNotificationClient {
         }
     }
 
-    async fn handle_packet(&self, packet: Packet) -> anyhow::Result<()> {
+    async fn handle_packet(&mut self, packet: Packet) -> anyhow::Result<()> {
         match packet {
             Packet::ConnAck(_) => {
                 log::info!("Connected to the MQTT broker");

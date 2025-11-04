@@ -7,14 +7,14 @@ mod config;
 mod mqtt;
 mod notifier;
 
+use core::time::Duration;
 use std::io::Write as _;
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use anyhow::bail;
 use clap::Parser as _;
-use futures::stream::StreamExt as _;
 use rustls::crypto;
+use tokio_graceful_shutdown::{SubsystemBuilder, SubsystemHandle, Toplevel};
 
 use crate::config::MQTTConfig;
 use crate::mqtt::MQTTNotificationClient;
@@ -57,17 +57,33 @@ async fn main() {
         .install_default()
         .expect("Failed to install crypto provider");
 
-    let shutdown = Arc::new(tokio::sync::Notify::new());
+    let result = Toplevel::new(async |toplevel: &mut SubsystemHandle| {
+        let args = Args::parse();
 
-    if let Err(e) = tokio::select! {
-        result = run(Args::parse(), shutdown.clone()) => result,
-        result = signal_handler(shutdown.clone()) => result,
-    } {
+        toplevel.start(SubsystemBuilder::new(
+            "mqtt-notify",
+            async |subsys: &mut SubsystemHandle| run(args, subsys).await,
+        ));
+
+        toplevel.start(SubsystemBuilder::new(
+            "shutdown-logger",
+            async |subsys: &mut SubsystemHandle| -> anyhow::Result<()> {
+                subsys.on_shutdown_requested().await;
+                log::info!("Shutting down...");
+                Ok(())
+            },
+        ));
+    })
+    .catch_signals()
+    .handle_shutdown_requests(Duration::from_secs(10))
+    .await;
+
+    if let Err(e) = result {
         log::error!("{e:#}");
-    };
+    }
 }
 
-async fn run(args: Args, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
+async fn run(args: Args, subsys: &SubsystemHandle) -> anyhow::Result<()> {
     let config = MQTTConfig::new(&args.mqtt_url, "notifications").context("MQTT config error")?;
 
     let mut notifiers: Vec<Box<DynNotifier>> = Vec::new();
@@ -89,26 +105,18 @@ async fn run(args: Args, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<(
     let composite: Arc<DynNotifier> = Arc::new(CompositeNotifier::new(notifiers));
     let mut mqtt = MQTTNotificationClient::new(&config, Arc::clone(&composite));
 
-    tokio::try_join!(mqtt.run(shutdown.clone()), composite.run(shutdown.clone()))?;
-    Ok(())
-}
+    subsys.start(SubsystemBuilder::new(
+        "mqtt-client",
+        async move |subsys: &mut SubsystemHandle| mqtt.run(subsys).await,
+    ));
 
-async fn signal_handler(shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
-    let mut signals = signal_hook_tokio::Signals::new([
-        signal_hook::consts::SIGINT,
-        signal_hook::consts::SIGTERM,
-    ])
-    .context("Failed to install signal handlers")?;
+    let composite_runner = Arc::clone(&composite);
+    subsys.start(SubsystemBuilder::new(
+        "notifiers",
+        async move |subsys: &mut SubsystemHandle| composite_runner.run(subsys).await,
+    ));
 
-    signals.next().await;
-    log::info!("Shutting down...");
-    shutdown.notify_waiters();
-
-    while let Some(signal) = signals.next().await {
-        if signal == signal_hook::consts::SIGINT {
-            bail!("Didn't have time to gracefully disconnect and cleanup");
-        }
-    }
+    subsys.wait_for_children().await;
 
     Ok(())
 }

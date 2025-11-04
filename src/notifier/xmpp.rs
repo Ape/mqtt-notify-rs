@@ -1,12 +1,12 @@
 use core::str::FromStr as _;
 use std::fs;
-use std::sync::Arc;
 
 use anyhow::Context as _;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio_graceful_shutdown::SubsystemHandle;
 use xmpp::jid::BareJid;
 use xmpp::{ClientBuilder, ClientType, Event};
 use xmpp_parsers::message::MessageType;
@@ -71,14 +71,14 @@ impl Notifier for XMPPNotifier {
         }
     }
 
-    async fn run(&self, shutdown: Arc<tokio::sync::Notify>) -> anyhow::Result<()> {
+    async fn run(&self, subsys: &SubsystemHandle) -> anyhow::Result<()> {
         let mut agent = ClientBuilder::new(self.jid.clone(), &self.password)
             .set_client(ClientType::Bot, "mqtt-notify-rs")
             .build();
 
         loop {
             tokio::select! {
-                () = shutdown.notified() => break,
+                () = subsys.on_shutdown_requested() => break,
                 Some(msg) = async { self.receiver.lock().await.recv().await } => {
                     for recipient in &self.recipients {
                         agent.send_message(
