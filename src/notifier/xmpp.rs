@@ -67,7 +67,7 @@ impl Notifier for XMPPNotifier {
         let message = format!("{title}\n{body}");
 
         if let Err(e) = self.sender.send(message) {
-            log::error!("Failed to send notification: {}", e);
+            log::error!("Failed to send notification: {e}");
         }
     }
 
@@ -93,7 +93,7 @@ impl Notifier for XMPPNotifier {
                     for event in events {
                         if matches!(event, Event::Online) {
                             if let Some(bound_jid) = agent.bound_jid() {
-                                log::info!("XMPP agent online as {}", bound_jid);
+                                log::info!("XMPP agent online as {bound_jid}");
                             } else {
                                 log::warn!("XMPP agent online without JID");
                             }

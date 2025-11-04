@@ -21,7 +21,7 @@ impl Notifier for DesktopNotifier {
             .finalize();
 
         if let Err(e) = notification.show() {
-            log::error!("Desktop notification failed: {}", e);
+            log::error!("Desktop notification failed: {e}");
         }
     }
 }

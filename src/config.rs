@@ -24,8 +24,7 @@ impl MQTTConfig {
 
         ensure!(
             scheme == "mqtt" || scheme == "mqtts",
-            "Invalid scheme: expected mqtt or mqtts, got {}",
-            scheme
+            "Invalid scheme: expected mqtt or mqtts, got {scheme}"
         );
 
         let host = url

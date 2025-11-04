@@ -102,7 +102,7 @@ impl MQTTNotificationClient {
 
                 if let Some(title) = lines.next() {
                     let body = lines.collect::<Vec<_>>().join("\n");
-                    log::info!(">> {}: {}", title, body);
+                    log::info!(">> {title}: {body}");
                     self.notifier.notify(title, &body).await;
                 }
             }
