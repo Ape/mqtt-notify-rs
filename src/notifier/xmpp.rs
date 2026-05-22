@@ -8,8 +8,8 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio_graceful_shutdown::SubsystemHandle;
 use xmpp::jid::BareJid;
+use xmpp::parsers::message::MessageType;
 use xmpp::{ClientBuilder, ClientType, Event};
-use xmpp_parsers::message::MessageType;
 
 use crate::notifier::Notifier;
 
