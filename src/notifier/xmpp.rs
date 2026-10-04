@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio_graceful_shutdown::SubsystemHandle;
 use xmpp::jid::BareJid;
-use xmpp::parsers::message::MessageType;
+use xmpp::message::send::MessageSettings;
 use xmpp::{ClientBuilder, ClientType, Event};
 
 use crate::notifier::Notifier;
@@ -81,15 +81,10 @@ impl Notifier for XMPPNotifier {
                 () = subsys.on_shutdown_requested() => break,
                 Some(msg) = async { self.receiver.lock().await.recv().await } => {
                     for recipient in &self.recipients {
-                        agent.send_message(
-                            recipient.clone().into(),
-                            MessageType::Chat,
-                            "",
-                            &msg,
-                        ).await;
+                        agent.send_message(MessageSettings::new(recipient.clone(), &msg)).await;
                     }
                 }
-                Some(events) = agent.wait_for_events() => {
+                events = agent.wait_for_events() => {
                     for event in events {
                         if matches!(event, Event::Online) {
                             if let Some(bound_jid) = agent.bound_jid() {
